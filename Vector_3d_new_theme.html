@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Vector & Line Space - CyberHUD</title>
+    <!-- Sci-Fi Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #030712;
+            --hud-bg: rgba(6, 15, 30, 0.85);
+            --hud-border: #00f3ff;
+            --hud-glow: rgba(0, 243, 255, 0.25);
+            --accent-cyan: #00f3ff;
+            --accent-pink: #ff0055;
+            --accent-yellow: #ffe600;
+            --accent-green: #00ff66;
+            --font-head: 'Orbitron', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: var(--font-mono);
+            color: #d1f4ff;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 350px;
+            max-height: calc(100vh - 40px);
+            background: var(--hud-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--hud-border);
+            border-radius: 4px;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px var(--hud-glow), inset 0 0 15px rgba(0, 243, 255, 0.1);
+            z-index: 10;
+            clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 15px 100%, 0 calc(100% - 15px));
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+            background: rgba(0, 243, 255, 0.05);
+            position: relative;
+        }
+
+        .sidebar-header::before {
+            content: '/// HUD_SYSTEM_v2.0';
+            font-family: var(--font-head);
+            font-size: 8px;
+            color: var(--accent-cyan);
+            letter-spacing: 2px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-header h1 {
+            margin: 0 0 4px 0;
+            font-family: var(--font-head);
+            font-size: 16px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            text-shadow: 0 0 8px var(--hud-glow);
+        }
+
+        .sidebar-header p {
+            margin: 0;
+            font-size: 10px;
+            color: #8ab4f8;
+            line-height: 1.4;
+        }
+
+        .toggle-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: rgba(0, 243, 255, 0.03);
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.15);
+            font-family: var(--font-head);
+            font-size: 11px;
+            font-weight: 700;
+            color: #d1f4ff;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-header:hover {
+            background: rgba(0, 243, 255, 0.15);
+            color: #ffffff;
+            box-shadow: inset 4px 0 0 var(--accent-cyan);
+        }
+
+        .arrow-icon {
+            transition: transform 0.3s ease;
+            font-size: 10px;
+            color: var(--accent-cyan);
+        }
+
+        .arrow-icon.collapsed {
+            transform: rotate(-180deg);
+        }
+
+        .tab-container {
+            padding: 12px 14px;
+            overflow-y: auto;
+            flex-grow: 1;
+            max-height: 300px;
+            transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+        }
+
+        .tab-container.collapsed {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            overflow: hidden;
+            opacity: 0;
+        }
+
+        .tab-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .tab-container::-webkit-scrollbar-thumb {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 5px var(--accent-cyan);
+        }
+
+        .point-row, .vector-row, .line-row, .linear-combo-row, .plane-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+            background: rgba(0, 20, 40, 0.6);
+            padding: 8px 10px;
+            border-left: 2px solid var(--accent-cyan);
+            border-top: 1px solid rgba(0, 243, 255, 0.1);
+            border-right: 1px solid rgba(0, 243, 255, 0.1);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.1);
+            transition: all 0.2s;
+        }
+
+        .point-row-inline, .vector-row-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .point-row:hover, .vector-row:hover, .line-row:hover, .linear-combo-row:hover, .plane-row:hover {
+            border-left-color: var(--accent-pink);
+            background: rgba(0, 30, 60, 0.8);
+        }
+
+        .point-toggle, .vector-shift-toggle {
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent-cyan);
+        }
+
+        .point-label, .vector-label, .line-label, .plane-label {
+            font-family: var(--font-head);
+            font-weight: 700;
+            font-size: 12px;
+            width: 35px;
+            color: var(--accent-cyan);
+        }
+
+        .coord-inputs {
+            display: flex;
+            gap: 6px;
+            flex-grow: 1;
+        }
+
+        .coord-input-group {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            padding: 2px 4px;
+            width: 100%;
+        }
+
+        .coord-input-group span {
+            font-size: 9px;
+            color: var(--accent-cyan);
+            margin-right: 4px;
+            font-family: var(--font-head);
+        }
+
+        .coord-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            outline: none;
+            text-align: center;
+        }
+
+        .coord-input::-webkit-inner-spin-button, 
+        .coord-input::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .point-sublabel {
+            font-size: 9px;
+            color: #7a9bb8;
+            margin-top: 4px;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .shift-option, .angle-toggle-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 4px;
+            font-size: 10px;
+            color: #a0c4e2;
+        }
+
+        .dir-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 10px;
+            text-align: center;
+            background: rgba(0, 10, 20, 0.8);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+        }
+
+        .dir-table th, .dir-table td {
+            padding: 6px 4px;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+        }
+
+        .dir-table th {
+            background: rgba(0, 243, 255, 0.1);
+            color: var(--accent-cyan);
+            font-family: var(--font-head);
+            font-size: 9px;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin: 12px 14px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            font-family: var(--font-head);
+            font-weight: 700;
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: 1px solid var(--accent-cyan);
+            background: rgba(0, 243, 255, 0.1);
+            color: var(--accent-cyan);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+        }
+
+        .btn:hover {
+            background: var(--accent-cyan);
+            color: #000;
+            box-shadow: 0 0 10px var(--accent-cyan);
+        }
+
+        #action-btn {
+            border-color: var(--accent-yellow);
+            color: var(--accent-yellow);
+            background: rgba(255, 230, 0, 0.1);
+        }
+        #action-btn:hover {
+            background: var(--accent-yellow);
+            color: #000;
+            box-shadow: 0 0 10px var(--accent-yellow);
+        }
+
+        #clear-btn {
+            border-color: var(--accent-pink);
+            color: var(--accent-pink);
+            background: rgba(255, 0, 85, 0.1);
+        }
+        #clear-btn:hover {
+            background: var(--accent-pink);
+            color: #fff;
+            box-shadow: 0 0 10px var(--accent-pink);
+        }
+
+        #grid-btn.active {
+            background: var(--accent-cyan);
+            color: #000;
+        }
+    </style>
+    <!-- Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <h1>Vector & Line Space</h1>
+            <p>1. Select 2 points for a vector.<br>2. Active 3+ points & click "Fill Region" to shade.</p>
+        </div>
+        
+        <!-- Points Configuration Tab -->
+        <div class="toggle-header" id="points-toggle-hdr">
+            <span>Points Configuration</span>
+            <span class="arrow-icon" id="arrow-icon-points">▲</span>
+        </div>
+        <div class="tab-container" id="points-list">
+            <div id="points-list-rows"></div>
+            <div class="btn-row">
+                <button id="action-btn" class="btn">Fill Region</button>
+                <button id="clear-btn" class="btn">Clear Regions</button>
+            </div>
+        </div>
+
+        <!-- Vector Configuration Tab -->
+        <div class="toggle-header" id="vectors-toggle-hdr">
+            <span>Vector Configuration</span>
+            <span class="arrow-icon collapsed" id="arrow-icon-vectors">▲</span>
+        </div>
+        <div class="tab-container collapsed" id="vectors-list">
+            <div id="vectors-list-rows"></div>
+
+            <div class="point-sublabel" style="margin-top: 10px; font-weight: bold; color: var(--accent-cyan);">Cross Products (Perpendicular)</div>
+            <div class="angle-toggle-option">
+                <input type="checkbox" class="vector-shift-toggle" id="toggle-cross-v1v2">
+                <label for="toggle-cross-v1v2">V1 × V2</label>
+            </div>
+            <div class="angle-toggle-option">
+                <input type="checkbox" class="vector-shift-toggle" id="toggle-cross-v2v3">
+                <label for="toggle-cross-v2v3">V2 × V3</label>
+            </div>
+            <div class="angle-toggle-option">
+                <input type="checkbox" class="vector-shift-toggle" id="toggle-cross-v1v3">
+                <label for="toggle-cross-v1v3">V1 × V3</label>
+            </div>
+
+            <div class="linear-combo-row" style="margin-top: 12px;">
+                <div class="vector-row-header">
+                    <input type="checkbox" class="point-toggle" id="toggle-vcombo">
+                    <span class="vector-label" style="color: #e040fb; width: auto;">Vector V = c1·V1 + c2·V2 + c3·V3</span>
+                </div>
+                <div class="point-sublabel">Coefficients</div>
+                <div class="coord-inputs">
+                    <div class="coord-input-group"><span>c1</span><input type="number" class="coord-input" id="coeff-c1" value="1" step="0.2"></div>
+                    <div class="coord-input-group"><span>c2</span><input type="number" class="coord-input" id="coeff-c2" value="1" step="0.2"></div>
+                    <div class="coord-input-group"><span>c3</span><input type="number" class="coord-input" id="coeff-c3" value="0" step="0.2"></div>
+                </div>
+
+                <div class="shift-option">
+                    <input type="checkbox" class="vector-shift-toggle" id="toggle-plane-vcombo">
+                    <label for="toggle-plane-vcombo">Plot Plane spanned by c1V1+c2V2+c3V3</label>
+                </div>
+            </div>
+
+            <div class="point-sublabel" style="margin-top: 12px; font-weight: bold; color: var(--accent-cyan);">Vector Components (T - I)</div>
+            <table class="dir-table">
+                <thead>
+                    <tr>
+                        <th>Vector</th>
+                        <th>V<sub>x</sub></th>
+                        <th>V<sub>y</sub></th>
+                        <th>V<sub>z</sub></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="color: var(--accent-green); font-weight: bold;">V1</td>
+                        <td id="comp-v1-x">0.0</td>
+                        <td id="comp-v1-y">0.0</td>
+                        <td id="comp-v1-z">0.0</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--accent-yellow); font-weight: bold;">V2</td>
+                        <td id="comp-v2-x">0.0</td>
+                        <td id="comp-v2-y">0.0</td>
+                        <td id="comp-v2-z">0.0</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--accent-cyan); font-weight: bold;">V3</td>
+                        <td id="comp-v3-x">0.0</td>
+                        <td id="comp-v3-y">0.0</td>
+                        <td id="comp-v3-z">0.0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Straight Line Configuration Tab -->
+        <div class="toggle-header" id="lines-toggle-hdr">
+            <span>Straight Line Configuration</span>
+            <span class="arrow-icon collapsed" id="arrow-icon-lines">▲</span>
+        </div>
+        <div class="tab-container collapsed" id="lines-list">
+            <div id="lines-list-rows"></div>
+
+            <div class="point-sublabel" style="margin-top: 12px; font-weight: bold; color: var(--accent-cyan);">Direction Components (d = b - a)</div>
+            <table class="dir-table">
+                <thead>
+                    <tr>
+                        <th>Line</th>
+                        <th>d<sub>x</sub></th>
+                        <th>d<sub>y</sub></th>
+                        <th>d<sub>z</sub></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="color: var(--accent-pink); font-weight: bold;">L1</td>
+                        <td id="dir-l1-x">0.0</td>
+                        <td id="dir-l1-y">0.0</td>
+                        <td id="dir-l1-z">0.0</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--accent-yellow); font-weight: bold;">L2</td>
+                        <td id="dir-l2-x">0.0</td>
+                        <td id="dir-l2-y">0.0</td>
+                        <td id="dir-l2-z">0.0</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--accent-green); font-weight: bold;">L3</td>
+                        <td id="dir-l3-x">0.0</td>
+                        <td id="dir-l3-y">0.0</td>
+                        <td id="dir-l3-z">0.0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Plane Configuration Tab -->
+        <div class="toggle-header" id="planes-toggle-hdr">
+            <span>Plane Configuration</span>
+            <span class="arrow-icon collapsed" id="arrow-icon-planes">▲</span>
+        </div>
+        <div class="tab-container collapsed" id="planes-list">
+            <div id="planes-list-rows"></div>
+        </div>
+
+        <div class="btn-group">
+            <button id="grid-btn" class="btn">Toggle Grid Lines</button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // Collapsible Tab Handlers
+        function setupCollapsible(toggleHdrId, tabContainerId, arrowIconId) {
+            const toggleHdr = document.getElementById(toggleHdrId);
+            const tabContainer = document.getElementById(tabContainerId);
+            const arrowIcon = document.getElementById(arrowIconId);
+
+            toggleHdr.addEventListener('click', () => {
+                tabContainer.classList.toggle('collapsed');
+                arrowIcon.classList.toggle('collapsed');
+            });
+        }
+
+        setupCollapsible('points-toggle-hdr', 'points-list', 'arrow-icon-points');
+        setupCollapsible('vectors-toggle-hdr', 'vectors-list', 'arrow-icon-vectors');
+        setupCollapsible('lines-toggle-hdr', 'lines-list', 'arrow-icon-lines');
+        setupCollapsible('planes-toggle-hdr', 'planes-list', 'arrow-icon-planes');
+
+        // Scene, Camera, Renderer Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x030712);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(10, 8, 12);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const dirLight1 = new THREE.DirectionalLight(0x00f3ff, 0.6);
+        dirLight1.position.set(10, 12, 8);
+        scene.add(dirLight1);
+        const dirLight2 = new THREE.DirectionalLight(0xff0055, 0.4);
+        dirLight2.position.set(-10, -12, -8);
+        scene.add(dirLight2);
+
+        // Axes and Planes Setup
+        const axisLength = 5, headLength = 0.4, headWidth = 0.2;
+        scene.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), axisLength, 0xff0055, headLength, headWidth));
+        scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), axisLength, 0x00ff66, headLength, headWidth));
+        scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), axisLength, 0x00f3ff, headLength, headWidth));
+
+        scene.add(new THREE.ArrowHelper(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 0), axisLength, 0x880022, headLength, headWidth));
+        scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 0), axisLength, 0x008833, headLength, headWidth));
+        scene.add(new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 0), axisLength, 0x0088aa, headLength, headWidth));
+
+        const planeSize = 10;
+        const planeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x002244,
+            transparent: true,
+            opacity: 0.25,
+            side: THREE.DoubleSide
+        });
+
+        const xyPlane = new THREE.Mesh(new THREE.PlaneGeometry(planeSize, planeSize), planeMaterial);
+        scene.add(xyPlane);
+        const yzPlane = new THREE.Mesh(new THREE.PlaneGeometry(planeSize, planeSize), planeMaterial);
+        yzPlane.rotation.y = Math.PI / 2;
+        scene.add(yzPlane);
+        const zxPlane = new THREE.Mesh(new THREE.PlaneGeometry(planeSize, planeSize), planeMaterial);
+        zxPlane.rotation.x = Math.PI / 2;
+        scene.add(zxPlane);
+
+        // Grid Lines for Coordinate Planes
+        const gridGroup = new THREE.Group();
+        gridGroup.visible = false;
+        scene.add(gridGroup);
+
+        const gridXY = new THREE.GridHelper(planeSize, 10, 0x00f3ff, 0x003344);
+        gridXY.rotation.x = Math.PI / 2;
+        gridGroup.add(gridXY);
+
+        const gridYZ = new THREE.GridHelper(planeSize, 10, 0x00f3ff, 0x003344);
+        gridYZ.rotation.z = Math.PI / 2;
+        gridGroup.add(gridYZ);
+
+        const gridZX = new THREE.GridHelper(planeSize, 10, 0x00f3ff, 0x003344);
+        gridGroup.add(gridZX);
+
+        const gridBtn = document.getElementById('grid-btn');
+        gridBtn.addEventListener('click', () => {
+            gridGroup.visible = !gridGroup.visible;
+            gridBtn.classList.toggle('active', gridGroup.visible);
+        });
+
+        function createTextSprite(text, color = '#00f3ff') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 384; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.font = 'Bold 36px Orbitron, sans-serif';
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 8;
+            ctx.fillText(text, 192, 64);
+
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
+            sprite.scale.set(2.4, 0.8, 1);
+            return sprite;
+        }
+
+        // Scene Labels
+        const labelO = createTextSprite('O', '#ffffff'); labelO.position.set(-0.4, -0.4, -0.4); scene.add(labelO);
+        const labelX = createTextSprite('X', '#ff0055'); labelX.position.set(axisLength + 0.5, 0, 0); scene.add(labelX);
+        const labelY = createTextSprite('Y', '#00ff66'); labelY.position.set(0, axisLength + 0.5, 0); scene.add(labelY);
+        const labelZ = createTextSprite('Z', '#00f3ff'); labelZ.position.set(0, 0, axisLength + 0.5); scene.add(labelZ);
+
+        // Point Management
+        const pointsData = {};
+        const colors = ['#ff0055', '#ff00aa', '#b000ff', '#7000ff', '#0033ff', '#00f3ff', '#00ff66', '#ffe600', '#ffaa00', '#ff5500'];
+        const pointNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        const listContainer = document.getElementById('points-list-rows');
+
+        pointNames.forEach((name, index) => {
+            pointsData[name] = {
+                name: name, active: false, x: 2, y: 2, z: 2, color: colors[index],
+                meshGroup: new THREE.Group(), sphereMesh: null
+            };
+            scene.add(pointsData[name].meshGroup);
+
+            const row = document.createElement('div');
+            row.className = 'point-row';
+            row.style.borderLeftColor = colors[index];
+            row.innerHTML = `
+                <div class="point-row-inline">
+                    <input type="checkbox" class="point-toggle" id="toggle-${name}">
+                    <span class="point-label" style="color: ${colors[index]}">${name}</span>
+                    <div class="coord-inputs">
+                        <div class="coord-input-group"><span>X</span><input type="number" class="coord-input" id="x-${name}" value="2" step="0.5"></div>
+                        <div class="coord-input-group"><span>Y</span><input type="number" class="coord-input" id="y-${name}" value="2" step="0.5"></div>
+                        <div class="coord-input-group"><span>Z</span><input type="number" class="coord-input" id="z-${name}" value="2" step="0.5"></div>
+                    </div>
+                </div>
+            `;
+            listContainer.appendChild(row);
+
+            document.getElementById(`toggle-${name}`).addEventListener('change', (e) => {
+                pointsData[name].active = e.target.checked;
+                updatePointVisualization(name);
+                updateSegmentConnections();
+            });
+
+            ['x', 'y', 'z'].forEach(axis => {
+                document.getElementById(`${axis}-${name}`).addEventListener('input', (e) => {
+                    pointsData[name][axis] = parseFloat(e.target.value) || 0;
+                    if (pointsData[name].active) {
+                        updatePointVisualization(name);
+                        updateSegmentConnections();
+                        recalculateRegions();
+                    }
+                });
+            });
+        });
+
+        // Vectors Management
+        const vectorsData = {};
+        const vectorNames = ['V1', 'V2', 'V3'];
+        const vectorColors = ['#00ff66', '#ffe600', '#00f3ff'];
+        const defaultInitials = [{x: 1, y: 1, z: 1}, {x: 0, y: 1, z: 2}, {x: 2, y: 0, z: 1}];
+        const defaultTerminals = [{x: 3, y: 3, z: 3}, {x: 3, y: 2, z: 1}, {x: 1, y: 4, z: 2}];
+
+        const vectorsContainer = document.getElementById('vectors-list-rows');
+
+        vectorNames.forEach((vName, index) => {
+            vectorsData[vName] = {
+                name: vName, active: index < 2, shiftToOrigin: false,
+                initial: { ...defaultInitials[index] },
+                terminal: { ...defaultTerminals[index] },
+                color: vectorColors[index],
+                meshGroup: new THREE.Group()
+            };
+            scene.add(vectorsData[vName].meshGroup);
+
+            const row = document.createElement('div');
+            row.className = 'vector-row';
+            row.style.borderLeftColor = vectorColors[index];
+            row.innerHTML = `
+                <div class="vector-row-header">
+                    <input type="checkbox" class="point-toggle" id="toggle-${vName}" ${index < 2 ? 'checked' : ''}>
+                    <span class="vector-label" style="color: ${vectorColors[index]}">${vName}</span>
+                </div>
+                <div class="point-sublabel">Initial Point</div>
+                <div class="coord-inputs">
+                    <div class="coord-input-group"><span>X</span><input type="number" class="coord-input" id="ix-${vName}" value="${defaultInitials[index].x}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Y</span><input type="number" class="coord-input" id="iy-${vName}" value="${defaultInitials[index].y}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Z</span><input type="number" class="coord-input" id="iz-${vName}" value="${defaultInitials[index].z}" step="0.5"></div>
+                </div>
+                <div class="point-sublabel">Terminal Point</div>
+                <div class="coord-inputs">
+                    <div class="coord-input-group"><span>X</span><input type="number" class="coord-input" id="tx-${vName}" value="${defaultTerminals[index].x}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Y</span><input type="number" class="coord-input" id="ty-${vName}" value="${defaultTerminals[index].y}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Z</span><input type="number" class="coord-input" id="tz-${vName}" value="${defaultTerminals[index].z}" step="0.5"></div>
+                </div>
+                <div class="shift-option">
+                    <input type="checkbox" class="vector-shift-toggle" id="shift-${vName}">
+                    <label for="shift-${vName}">Shift parallel to origin</label>
+                </div>
+            `;
+            vectorsContainer.appendChild(row);
+
+            document.getElementById(`toggle-${vName}`).addEventListener('change', (e) => {
+                vectorsData[vName].active = e.target.checked;
+                updateAllVectorGraphics();
+            });
+
+            document.getElementById(`shift-${vName}`).addEventListener('change', (e) => {
+                vectorsData[vName].shiftToOrigin = e.target.checked;
+                if (vectorsData[vName].active) updateAllVectorGraphics();
+            });
+
+            ['x', 'y', 'z'].forEach(axis => {
+                document.getElementById(`i${axis}-${vName}`).addEventListener('input', (e) => {
+                    vectorsData[vName].initial[axis] = parseFloat(e.target.value) || 0;
+                    updateAllVectorGraphics();
+                });
+                document.getElementById(`t${axis}-${vName}`).addEventListener('input', (e) => {
+                    vectorsData[vName].terminal[axis] = parseFloat(e.target.value) || 0;
+                    updateAllVectorGraphics();
+                });
+            });
+        });
+
+        // Straight Line Configuration (L1, L2, L3)
+        const linesData = {};
+        const lineNames = ['L1', 'L2', 'L3'];
+        const lineColors = ['#ff0055', '#ffe600', '#00ff66'];
+        const defaultLineA = [{x: -2, y: -1, z: 0}, {x: 1, y: -2, z: 1}, {x: -1, y: 2, z: -1}];
+        const defaultLineB = [{x: 3, y: 2, z: 4}, {x: -2, y: 3, z: 2}, {x: 2, y: -1, z: 3}];
+
+        const linesContainer = document.getElementById('lines-list-rows');
+
+        lineNames.forEach((lName, index) => {
+            linesData[lName] = {
+                name: lName, active: false,
+                a: { ...defaultLineA[index] },
+                b: { ...defaultLineB[index] },
+                color: lineColors[index],
+                meshGroup: new THREE.Group()
+            };
+            scene.add(linesData[lName].meshGroup);
+
+            const row = document.createElement('div');
+            row.className = 'line-row';
+            row.style.borderLeftColor = lineColors[index];
+            row.innerHTML = `
+                <div class="vector-row-header">
+                    <input type="checkbox" class="point-toggle" id="toggle-${lName}">
+                    <span class="line-label" style="color: ${lineColors[index]}">${lName}</span>
+                    <span style="font-size: 9px; color: #7a9bb8;">r = a + t(b - a)</span>
+                </div>
+                <div class="point-sublabel">Point a</div>
+                <div class="coord-inputs">
+                    <div class="coord-input-group"><span>X</span><input type="number" class="coord-input" id="ax-${lName}" value="${defaultLineA[index].x}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Y</span><input type="number" class="coord-input" id="ay-${lName}" value="${defaultLineA[index].y}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Z</span><input type="number" class="coord-input" id="az-${lName}" value="${defaultLineA[index].z}" step="0.5"></div>
+                </div>
+                <div class="point-sublabel">Point b</div>
+                <div class="coord-inputs">
+                    <div class="coord-input-group"><span>X</span><input type="number" class="coord-input" id="bx-${lName}" value="${defaultLineB[index].x}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Y</span><input type="number" class="coord-input" id="by-${lName}" value="${defaultLineB[index].y}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Z</span><input type="number" class="coord-input" id="bz-${lName}" value="${defaultLineB[index].z}" step="0.5"></div>
+                </div>
+            `;
+            linesContainer.appendChild(row);
+
+            document.getElementById(`toggle-${lName}`).addEventListener('change', (e) => {
+                linesData[lName].active = e.target.checked;
+                updateAllLineVisualizations();
+            });
+
+            ['x', 'y', 'z'].forEach(axis => {
+                document.getElementById(`a${axis}-${lName}`).addEventListener('input', (e) => {
+                    linesData[lName].a[axis] = parseFloat(e.target.value) || 0;
+                    updateAllLineVisualizations();
+                });
+                document.getElementById(`b${axis}-${lName}`).addEventListener('input', (e) => {
+                    linesData[lName].b[axis] = parseFloat(e.target.value) || 0;
+                    updateAllLineVisualizations();
+                });
+            });
+        });
+
+        // Plane Configuration (P1, P2, P3)
+        const planesData = {};
+        const planeNames = ['P1', 'P2', 'P3'];
+        const customPlaneColors = ['#b000ff', '#00f3ff', '#ff5500'];
+        const defaultPlaneA = [{x: 0, y: 0, z: 0}, {x: 1, y: 1, z: 0}, {x: 0, y: -1, z: 1}];
+        const defaultPlaneB = [{x: 0, y: 0, z: 1}, {x: 1, y: 1, z: 1}, {x: 0, y: 1, z: 0}];
+
+        const planeIntersectionsGroup = new THREE.Group();
+        scene.add(planeIntersectionsGroup);
+
+        const planesContainer = document.getElementById('planes-list-rows');
+
+        planeNames.forEach((pName, index) => {
+            planesData[pName] = {
+                name: pName, active: index < 2,
+                a: { ...defaultPlaneA[index] },
+                b: { ...defaultPlaneB[index] },
+                color: customPlaneColors[index],
+                meshGroup: new THREE.Group()
+            };
+            scene.add(planesData[pName].meshGroup);
+
+            const row = document.createElement('div');
+            row.className = 'plane-row';
+            row.style.borderLeftColor = customPlaneColors[index];
+            row.innerHTML = `
+                <div class="vector-row-header">
+                    <input type="checkbox" class="point-toggle" id="toggle-${pName}" ${index < 2 ? 'checked' : ''}>
+                    <span class="plane-label" style="color: ${customPlaneColors[index]}">${pName}</span>
+                    <span style="font-size: 9px; color: #7a9bb8;">(r - a) · b = 0</span>
+                </div>
+                <div class="point-sublabel">Point a (Plane Center)</div>
+                <div class="coord-inputs">
+                    <div class="coord-input-group"><span>X</span><input type="number" class="coord-input" id="paX-${pName}" value="${defaultPlaneA[index].x}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Y</span><input type="number" class="coord-input" id="paY-${pName}" value="${defaultPlaneA[index].y}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Z</span><input type="number" class="coord-input" id="paZ-${pName}" value="${defaultPlaneA[index].z}" step="0.5"></div>
+                </div>
+                <div class="point-sublabel">Vector b (Normal)</div>
+                <div class="coord-inputs">
+                    <div class="coord-input-group"><span>X</span><input type="number" class="coord-input" id="pbX-${pName}" value="${defaultPlaneB[index].x}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Y</span><input type="number" class="coord-input" id="pbY-${pName}" value="${defaultPlaneB[index].y}" step="0.5"></div>
+                    <div class="coord-input-group"><span>Z</span><input type="number" class="coord-input" id="pbZ-${pName}" value="${defaultPlaneB[index].z}" step="0.5"></div>
+                </div>
+            `;
+            planesContainer.appendChild(row);
+
+            document.getElementById(`toggle-${pName}`).addEventListener('change', (e) => {
+                planesData[pName].active = e.target.checked;
+                updateAllPlaneVisualizations();
+            });
+
+            ['x', 'y', 'z'].forEach(axis => {
+                const upperAxis = axis.toUpperCase();
+                document.getElementById(`pa${upperAxis}-${pName}`).addEventListener('input', (e) => {
+                    planesData[pName].a[axis] = parseFloat(e.target.value) || 0;
+                    updateAllPlaneVisualizations();
+                });
+                document.getElementById(`pb${upperAxis}-${pName}`).addEventListener('input', (e) => {
+                    planesData[pName].b[axis] = parseFloat(e.target.value) || 0;
+                    updateAllPlaneVisualizations();
+                });
+            });
+        });
+
+        function computePlaneIntersection(pName1, pName2) {
+            const data1 = planesData[pName1];
+            const data2 = planesData[pName2];
+
+            if (!data1.active || !data2.active) return null;
+
+            const a1 = new THREE.Vector3(data1.a.x, data1.a.y, data1.a.z);
+            const n1 = new THREE.Vector3(data1.b.x, data1.b.y, data1.b.z);
+            const a2 = new THREE.Vector3(data2.a.x, data2.a.y, data2.a.z);
+            const n2 = new THREE.Vector3(data2.b.x, data2.b.y, data2.b.z);
+
+            if (n1.lengthSq() < 0.0001 || n2.lengthSq() < 0.0001) return null;
+
+            const d = new THREE.Vector3().crossVectors(n1, n2);
+            if (d.lengthSq() < 0.0001) return null; 
+
+            const d1 = n1.dot(a1);
+            const d2 = n2.dot(a2);
+
+            const n1n2 = n1.dot(n2);
+            const n1Sq = n1.lengthSq();
+            const n2Sq = n2.lengthSq();
+
+            const det = n1Sq * n2Sq - n1n2 * n1n2;
+            if (Math.abs(det) < 0.0001) return null;
+
+            const c1 = (d1 * n2Sq - d2 * n1n2) / det;
+            const c2 = (d2 * n1Sq - d1 * n1n2) / det;
+
+            const pointOnLine = new THREE.Vector3()
+                .addScaledVector(n1, c1)
+                .addScaledVector(n2, c2);
+
+            return { point: pointOnLine, dir: d.normalize() };
+        }
+
+        function updatePlaneIntersections() {
+            while (planeIntersectionsGroup.children.length > 0) {
+                planeIntersectionsGroup.remove(planeIntersectionsGroup.children[0]);
+            }
+
+            const pairs = [
+                ['P1', 'P2'],
+                ['P2', 'P3'],
+                ['P1', 'P3']
+            ];
+
+            pairs.forEach(([p1, p2]) => {
+                const result = computePlaneIntersection(p1, p2);
+                if (result) {
+                    const lineLength = 10;
+                    const start = result.point.clone().addScaledVector(result.dir, -lineLength);
+                    const end = result.point.clone().addScaledVector(result.dir, lineLength);
+
+                    // Create Dashed Line for Intersection
+                    const lineGeo = new THREE.BufferGeometry().setFromPoints([start, end]);
+                    const dashedMat = new THREE.LineDashedMaterial({
+                        color: 0x00f3ff,
+                        dashSize: 0.3,
+                        gapSize: 0.15,
+                        linewidth: 2
+                    });
+
+                    const dashedLine = new THREE.Line(lineGeo, dashedMat);
+                    dashedLine.computeLineDistances();
+                    planeIntersectionsGroup.add(dashedLine);
+
+                    const label = createTextSprite(`${p1} ∩ ${p2}`, '#00f3ff');
+                    label.position.copy(result.point).add(new THREE.Vector3(0.2, 0.2, 0.2));
+                    planeIntersectionsGroup.add(label);
+                }
+            });
+        }
+
+        function updateAllPlaneVisualizations() {
+            planeNames.forEach(pName => updatePlaneVisualization(pName));
+            updatePlaneIntersections();
+        }
+
+        function updatePlaneVisualization(pName) {
+            const data = planesData[pName];
+            const group = data.meshGroup;
+            while (group.children.length > 0) group.remove(group.children[0]);
+
+            if (!data.active) return;
+
+            const posA = new THREE.Vector3(data.a.x, data.a.y, data.a.z);
+            const normalB = new THREE.Vector3(data.b.x, data.b.y, data.b.z);
+            const normLen = normalB.length();
+
+            if (normLen < 0.0001) return;
+
+            const unitNormal = normalB.clone().normalize();
+            const hexColor = new THREE.Color(data.color).getHex();
+
+            const pGeometry = new THREE.PlaneGeometry(12, 12);
+            const pMaterial = new THREE.MeshStandardMaterial({
+                color: hexColor,
+                transparent: true,
+                opacity: 0.35,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+
+            const planeMesh = new THREE.Mesh(pGeometry, pMaterial);
+            planeMesh.position.copy(posA);
+
+            const defaultNormal = new THREE.Vector3(0, 0, 1);
+            const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultNormal, unitNormal);
+            planeMesh.quaternion.copy(quaternion);
+            group.add(planeMesh);
+
+            const sphereMat = new THREE.MeshStandardMaterial({ color: hexColor, roughness: 0.2, metalness: 0.5 });
+            const sphereA = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), sphereMat);
+            sphereA.position.copy(posA);
+            group.add(sphereA);
+
+            const labelA = createTextSprite(`${pName}_a`, data.color);
+            labelA.position.set(posA.x + 0.2, posA.y + 0.2, posA.z + 0.2);
+            group.add(labelA);
+
+            const arrowLen = Math.max(1.5, normLen);
+            const normalArrow = new THREE.ArrowHelper(
+                unitNormal,
+                posA,
+                arrowLen,
+                0xffe600,
+                Math.min(0.4, arrowLen * 0.3),
+                Math.min(0.2, arrowLen * 0.15)
+            );
+            group.add(normalArrow);
+
+            const labelB = createTextSprite(`b (${pName})`, '#ffe600');
+            const endB = posA.clone().addScaledVector(unitNormal, arrowLen);
+            labelB.position.set(endB.x + 0.2, endB.y + 0.2, endB.z + 0.2);
+            group.add(labelB);
+
+            const planeLabel = createTextSprite(pName, data.color);
+            planeLabel.position.set(posA.x - 0.4, posA.y - 0.4, posA.z - 0.4);
+            group.add(planeLabel);
+        }
+
+        function updateAllLineVisualizations() {
+            lineNames.forEach(lName => updateLineVisualization(lName));
+        }
+
+        function updateLineVisualization(lName) {
+            const data = linesData[lName];
+            const group = data.meshGroup;
+            while (group.children.length > 0) group.remove(group.children[0]);
+
+            const dx = data.b.x - data.a.x;
+            const dy = data.b.y - data.a.y;
+            const dz = data.b.z - data.a.z;
+
+            const key = lName.toLowerCase();
+            document.getElementById(`dir-${key}-x`).textContent = dx.toFixed(1);
+            document.getElementById(`dir-${key}-y`).textContent = dy.toFixed(1);
+            document.getElementById(`dir-${key}-z`).textContent = dz.toFixed(1);
+
+            if (!data.active) return;
+
+            const posA = new THREE.Vector3(data.a.x, data.a.y, data.a.z);
+            const posB = new THREE.Vector3(data.b.x, data.b.y, data.b.z);
+            const dir = posB.clone().sub(posA);
+            const len = dir.length();
+
+            if (len < 0.0001) return;
+
+            const unitDir = dir.clone().normalize();
+            const hexColor = new THREE.Color(data.color).getHex();
+
+            const tMin = -3, tMax = 4;
+            const startPt = posA.clone().addScaledVector(unitDir, tMin * len);
+            const endPt = posA.clone().addScaledVector(unitDir, tMax * len);
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([startPt, endPt]);
+            const lineMat = new THREE.LineBasicMaterial({ color: hexColor, linewidth: 2 });
+            group.add(new THREE.Line(lineGeo, lineMat));
+
+            const sphereMat = new THREE.MeshStandardMaterial({ color: hexColor, roughness: 0.2, metalness: 0.5 });
+
+            const sphereA = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), sphereMat);
+            sphereA.position.copy(posA);
+            group.add(sphereA);
+
+            const sphereB = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), sphereMat);
+            sphereB.position.copy(posB);
+            group.add(sphereB);
+
+            const labelA = createTextSprite(`${lName}_a`, data.color);
+            labelA.position.set(posA.x + 0.2, posA.y + 0.2, posA.z + 0.2);
+            group.add(labelA);
+
+            const labelB = createTextSprite(`${lName}_b`, data.color);
+            labelB.position.set(posB.x + 0.2, posB.y + 0.2, posB.z + 0.2);
+            group.add(labelB);
+
+            const lineLabelPos = posA.clone().add(posB).multiplyScalar(0.5);
+            const labelLine = createTextSprite(lName, data.color);
+            labelLine.position.set(lineLabelPos.x + 0.3, lineLabelPos.y + 0.3, lineLabelPos.z + 0.3);
+            group.add(labelLine);
+        }
+
+        // Cross Products Controls
+        const crossToggles = {
+            v1v2: document.getElementById('toggle-cross-v1v2'),
+            v2v3: document.getElementById('toggle-cross-v2v3'),
+            v1v3: document.getElementById('toggle-cross-v1v3')
+        };
+
+        const vComboState = {
+            active: false,
+            c1: 1, c2: 1, c3: 0,
+            showPlane: false,
+            meshGroup: new THREE.Group()
+        };
+        scene.add(vComboState.meshGroup);
+
+        const derivedGraphicsGroup = new THREE.Group();
+        scene.add(derivedGraphicsGroup);
+
+        document.getElementById('toggle-vcombo').addEventListener('change', (e) => {
+            vComboState.active = e.target.checked;
+            updateAllVectorGraphics();
+        });
+
+        ['c1', 'c2', 'c3'].forEach(c => {
+            document.getElementById(`coeff-${c}`).addEventListener('input', (e) => {
+                vComboState[c] = parseFloat(e.target.value) || 0;
+                if (vComboState.active || vComboState.showPlane) updateAllVectorGraphics();
+            });
+        });
+
+        document.getElementById('toggle-plane-vcombo').addEventListener('change', (e) => {
+            vComboState.showPlane = e.target.checked;
+            updateAllVectorGraphics();
+        });
+
+        Object.values(crossToggles).forEach(toggle => toggle.addEventListener('change', updateAllVectorGraphics));
+
+        function getVectorDirection(vName) {
+            const data = vectorsData[vName];
+            return new THREE.Vector3(
+                data.terminal.x - data.initial.x,
+                data.terminal.y - data.initial.y,
+                data.terminal.z - data.initial.z
+            );
+        }
+
+        function createDashedLine(start, end, colorHex) {
+            const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+            const material = new THREE.LineDashedMaterial({
+                color: colorHex,
+                dashSize: 0.2,
+                gapSize: 0.1,
+                linewidth: 2
+            });
+            const line = new THREE.Line(geometry, material);
+            line.computeLineDistances();
+            return line;
+        }
+
+        function createDashedVector(start, end, colorHex) {
+            const group = new THREE.Group();
+            const dir = end.clone().sub(start);
+            const length = dir.length();
+            if (length < 0.0001) return group;
+
+            const unitDir = dir.clone().normalize();
+            const headLen = Math.min(0.5, length * 0.3);
+            const lineLen = Math.max(0, length - headLen);
+
+            if (lineLen > 0) {
+                const lineEnd = start.clone().add(unitDir.clone().multiplyScalar(lineLen));
+                const line = createDashedLine(start, lineEnd, colorHex);
+                group.add(line);
+            }
+
+            const headPos = start.clone().add(unitDir.clone().multiplyScalar(lineLen));
+            const arrowHead = new THREE.ArrowHelper(unitDir, headPos, headLen, colorHex, headLen, Math.min(0.25, length * 0.15));
+            group.add(arrowHead);
+
+            return group;
+        }
+
+        function updateAllVectorGraphics() {
+            vectorNames.forEach(vName => updateVectorVisualization(vName));
+            updateVectorComponentsTable();
+            updateDerivedVectorGraphics();
+            updateLinearCombinationAndPlane();
+        }
+
+        function updateVectorComponentsTable() {
+            vectorNames.forEach(vName => {
+                const dir = getVectorDirection(vName);
+                const key = vName.toLowerCase();
+                document.getElementById(`comp-${key}-x`).textContent = dir.x.toFixed(1);
+                document.getElementById(`comp-${key}-y`).textContent = dir.y.toFixed(1);
+                document.getElementById(`comp-${key}-z`).textContent = dir.z.toFixed(1);
+            });
+        }
+
+        function updateVectorVisualization(vName) {
+            const data = vectorsData[vName];
+            const group = data.meshGroup;
+            while (group.children.length > 0) group.remove(group.children[0]);
+
+            if (!data.active) return;
+
+            const initialPos = new THREE.Vector3(data.initial.x, data.initial.y, data.initial.z);
+            const terminalPos = new THREE.Vector3(data.terminal.x, data.terminal.y, data.terminal.z);
+            const hexColor = new THREE.Color(data.color).getHex();
+
+            const dir = terminalPos.clone().sub(initialPos);
+            const length = dir.length();
+
+            if (length < 0.0001) return;
+            const unitDir = dir.clone().normalize();
+
+            const arrowHelper = new THREE.ArrowHelper(unitDir, initialPos, length, hexColor, Math.min(0.5, length * 0.3), Math.min(0.25, length * 0.15));
+            group.add(arrowHelper);
+
+            const sphereMat = new THREE.MeshStandardMaterial({ color: hexColor, roughness: 0.2, metalness: 0.5 });
+            const startSphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), sphereMat);
+            startSphere.position.copy(initialPos);
+            group.add(startSphere);
+
+            const endSphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), sphereMat);
+            endSphere.position.copy(terminalPos);
+            group.add(endSphere);
+
+            const origLabelPos = initialPos.clone().add(terminalPos).multiplyScalar(0.5);
+            const label = createTextSprite(vName, data.color);
+            label.position.set(origLabelPos.x + 0.3, origLabelPos.y + 0.3, origLabelPos.z + 0.3);
+            group.add(label);
+
+            if (data.shiftToOrigin) {
+                const shiftedInitial = new THREE.Vector3(0, 0, 0);
+                const shiftedTerminal = dir.clone();
+
+                const dashedVectorGroup = createDashedVector(shiftedInitial, shiftedTerminal, hexColor);
+                group.add(dashedVectorGroup);
+
+                const originSphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), sphereMat);
+                originSphere.position.copy(shiftedInitial);
+                group.add(originSphere);
+
+                const shiftedEndSphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), sphereMat);
+                shiftedEndSphere.position.copy(shiftedTerminal);
+                group.add(shiftedEndSphere);
+
+                const shiftedLabelPos = shiftedTerminal.clone().multiplyScalar(0.5);
+                const shiftedLabel = createTextSprite(`${vName}'`, data.color);
+                shiftedLabel.position.set(shiftedLabelPos.x + 0.3, shiftedLabelPos.y + 0.3, shiftedLabelPos.z + 0.3);
+                group.add(shiftedLabel);
+            }
+        }
+
+        function updateDerivedVectorGraphics() {
+            while (derivedGraphicsGroup.children.length > 0) derivedGraphicsGroup.remove(derivedGraphicsGroup.children[0]);
+
+            const pairs = [
+                { name1: 'V1', name2: 'V2', crossToggle: crossToggles.v1v2, color: '#ffe600' },
+                { name1: 'V2', name2: 'V3', crossToggle: crossToggles.v2v3, color: '#ff00aa' },
+                { name1: 'V1', name2: 'V3', crossToggle: crossToggles.v1v3, color: '#00f3ff' }
+            ];
+
+            pairs.forEach(pair => {
+                const d1 = vectorsData[pair.name1];
+                const d2 = vectorsData[pair.name2];
+                if (!d1.active || !d2.active) return;
+
+                const dir1 = getVectorDirection(pair.name1);
+                const dir2 = getVectorDirection(pair.name2);
+
+                if (dir1.lengthSq() === 0 || dir2.lengthSq() === 0) return;
+
+                if (pair.crossToggle.checked) {
+                    const crossVec = new THREE.Vector3().crossVectors(dir1, dir2);
+                    const len = crossVec.length();
+                    if (len > 0.0001) {
+                        const unitCross = crossVec.clone().normalize();
+                        const hexColor = new THREE.Color(pair.color).getHex();
+                        const origin = new THREE.Vector3(0, 0, 0);
+
+                        const arrow = new THREE.ArrowHelper(unitCross, origin, len, hexColor, Math.min(0.5, len * 0.3), Math.min(0.25, len * 0.15));
+                        derivedGraphicsGroup.add(arrow);
+
+                        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), new THREE.MeshStandardMaterial({ color: hexColor, roughness: 0.2 }));
+                        sphere.position.copy(crossVec);
+                        derivedGraphicsGroup.add(sphere);
+
+                        const sprite = createTextSprite(`${pair.name1}×${pair.name2}`, pair.color);
+                        sprite.position.set(crossVec.x + 0.3, crossVec.y + 0.3, crossVec.z + 0.3);
+                        derivedGraphicsGroup.add(sprite);
+                    }
+                }
+            });
+        }
+
+        function updateLinearCombinationAndPlane() {
+            const group = vComboState.meshGroup;
+            while (group.children.length > 0) group.remove(group.children[0]);
+
+            const v1Dir = getVectorDirection('V1');
+            const v2Dir = getVectorDirection('V2');
+            const v3Dir = getVectorDirection('V3');
+
+            if (vComboState.active) {
+                const vecV = new THREE.Vector3()
+                    .addScaledVector(v1Dir, vComboState.c1)
+                    .addScaledVector(v2Dir, vComboState.c2)
+                    .addScaledVector(v3Dir, vComboState.c3);
+
+                const length = vecV.length();
+                if (length > 0.0001) {
+                    const unitDir = vecV.clone().normalize();
+                    const colorHex = 0xe040fb;
+
+                    const arrow = new THREE.ArrowHelper(unitDir, new THREE.Vector3(0, 0, 0), length, colorHex, Math.min(0.6, length * 0.3), Math.min(0.3, length * 0.15));
+                    group.add(arrow);
+
+                    const sphereMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.2 });
+                    const endSphere = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), sphereMat);
+                    endSphere.position.copy(vecV);
+                    group.add(endSphere);
+
+                    const labelPos = vecV.clone().multiplyScalar(0.5);
+                    const label = createTextSprite('V', '#e040fb');
+                    label.position.set(labelPos.x + 0.3, labelPos.y + 0.3, labelPos.z + 0.3);
+                    group.add(label);
+                }
+            }
+
+            if (vComboState.showPlane) {
+                const components = [
+                    v1Dir.clone().multiplyScalar(vComboState.c1),
+                    v2Dir.clone().multiplyScalar(vComboState.c2),
+                    v3Dir.clone().multiplyScalar(vComboState.c3)
+                ];
+
+                let u = null, v = null;
+                for (let i = 0; i < components.length; i++) {
+                    if (components[i].lengthSq() > 0.0001) {
+                        if (!u) {
+                            u = components[i];
+                        } else {
+                            const cross = new THREE.Vector3().crossVectors(u, components[i]);
+                            if (cross.lengthSq() > 0.0001) {
+                                v = components[i];
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!u) u = v1Dir.lengthSq() > 0 ? v1Dir : new THREE.Vector3(1, 0, 0);
+                if (!v) {
+                    const fallbackCross = new THREE.Vector3().crossVectors(u, v2Dir);
+                    v = fallbackCross.lengthSq() > 0.0001 ? v2Dir : (new THREE.Vector3().crossVectors(u, new THREE.Vector3(0, 1, 0)).lengthSq() > 0.0001 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1));
+                }
+
+                const normal = new THREE.Vector3().crossVectors(u, v).normalize();
+
+                if (normal.lengthSq() > 0.0001) {
+                    const planeGeom = new THREE.PlaneGeometry(16, 16);
+                    const planeMat = new THREE.MeshStandardMaterial({
+                        color: 0xffe600,
+                        transparent: true,
+                        opacity: 0.3,
+                        side: THREE.DoubleSide,
+                        depthWrite: false
+                    });
+                    const planeMesh = new THREE.Mesh(planeGeom, planeMat);
+
+                    const defaultNormal = new THREE.Vector3(0, 0, 1);
+                    const quaternion = new THREE.Quaternion().setFromUnitVectors(defaultNormal, normal);
+                    planeMesh.quaternion.copy(quaternion);
+
+                    group.add(planeMesh);
+                }
+            }
+        }
+
+        function updatePointVisualization(name) {
+            const data = pointsData[name];
+            const group = data.meshGroup;
+            while(group.children.length > 0) group.remove(group.children[0]);
+            data.sphereMesh = null;
+
+            if (!data.active) {
+                selectedPoints = selectedPoints.filter(p => p !== name);
+                return;
+            }
+
+            const pos = new THREE.Vector3(data.x, data.y, data.z);
+            const isSelected = selectedPoints.includes(name);
+            const sphereMat = new THREE.MeshStandardMaterial({ 
+                color: isSelected ? 0xffffff : new THREE.Color(data.color), 
+                emissive: isSelected ? new THREE.Color(data.color) : 0x000000,
+                emissiveIntensity: isSelected ? 0.9 : 0, roughness: 0.2, metalness: 0.5 
+            });
+            const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), sphereMat);
+            sphere.position.copy(pos);
+            sphere.userData = { pointName: name };
+            group.add(sphere);
+            data.sphereMesh = sphere;
+
+            const origin = new THREE.Vector3(0, 0, 0);
+            if (pos.distanceTo(origin) > 0) {
+                group.add(new THREE.ArrowHelper(pos.clone().normalize(), origin, pos.distanceTo(origin), new THREE.Color(data.color).getHex(), 0.3, 0.15));
+            }
+            const label = createTextSprite(name, data.color);
+            label.position.set(data.x + 0.3, data.y + 0.3, data.z + 0.3);
+            group.add(label);
+        }
+
+        let selectedPoints = [];
+        const segmentGroup = new THREE.Group();
+        scene.add(segmentGroup);
+
+        const regionsGroup = new THREE.Group();
+        scene.add(regionsGroup);
+        let closedRegions = [];
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let pointerDownTime = 0;
+
+        window.addEventListener('pointerdown', () => pointerDownTime = Date.now());
+        window.addEventListener('pointerup', (event) => {
+            if (Date.now() - pointerDownTime > 250) return;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const interactiveSpheres = pointNames.filter(n => pointsData[n].active && pointsData[n].sphereMesh).map(n => pointsData[n].sphereMesh);
+            const intersects = raycaster.intersectObjects(interactiveSpheres);
+
+            if (intersects.length > 0) {
+                const clickedName = intersects[0].object.userData.pointName;
+                if (selectedPoints.includes(clickedName)) {
+                    selectedPoints = selectedPoints.filter(p => p !== clickedName);
+                } else {
+                    selectedPoints.push(clickedName);
+                }
+
+                pointNames.forEach(n => pointsData[n].active && updatePointVisualization(n));
+                updateSegmentConnections();
+            }
+        });
+
+        function getIntersectionT(c1, c2) {
+            if (c1 === c2) return null;
+            const t = -c1 / (c2 - c1);
+            return (t >= 0 && t <= 1) ? t : null;
+        }
+
+        function addIntersectionMarker(pos, planeName) {
+            const markerMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0x00f3ff, emissive: 0x00f3ff, emissiveIntensity: 0.8 })
+            );
+            markerMesh.position.copy(pos);
+            segmentGroup.add(markerMesh);
+
+            const label = createTextSprite(`${planeName} (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`, '#00f3ff');
+            label.position.set(pos.x + 0.3, pos.y + 0.3, pos.z + 0.3);
+            segmentGroup.add(label);
+        }
+
+        function updateSegmentConnections() {
+            while (segmentGroup.children.length > 0) segmentGroup.remove(segmentGroup.children[0]);
+            if (selectedPoints.length !== 2) return;
+
+            const p1Data = pointsData[selectedPoints[0]];
+            const p2Data = pointsData[selectedPoints[1]];
+            if (!p1Data || !p2Data || !p1Data.active || !p2Data.active) return;
+
+            const pos1 = new THREE.Vector3(p1Data.x, p1Data.y, p1Data.z);
+            const pos2 = new THREE.Vector3(p2Data.x, p2Data.y, p2Data.z);
+            const distance = pos1.distanceTo(pos2);
+            if (distance < 0.0001) return;
+
+            const dir = pos2.clone().sub(pos1).normalize();
+            const line = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([pos1, pos2]),
+                new THREE.LineBasicMaterial({ color: 0xffe600, linewidth: 2 })
+            );
+            segmentGroup.add(line);
+
+            const midPoint = pos1.clone().add(pos2).multiplyScalar(0.5);
+            const headLength = Math.min(0.5, distance * 0.3);
+            segmentGroup.add(new THREE.ArrowHelper(dir, midPoint.clone().sub(dir.clone().multiplyScalar(headLength / 2)), headLength, 0xffe600, headLength, headLength * 0.5));
+
+            const t_xy = getIntersectionT(pos1.z, pos2.z);
+            if (t_xy !== null) addIntersectionMarker(new THREE.Vector3().lerpVectors(pos1, pos2, t_xy), "XY");
+            const t_yz = getIntersectionT(pos1.x, pos2.x);
+            if (t_yz !== null) addIntersectionMarker(new THREE.Vector3().lerpVectors(pos1, pos2, t_yz), "YZ");
+            const t_zx = getIntersectionT(pos1.y, pos2.y);
+            if (t_zx !== null) addIntersectionMarker(new THREE.Vector3().lerpVectors(pos1, pos2, t_zx), "ZX");
+        }
+
+        document.getElementById('action-btn').addEventListener('click', () => {
+            if (selectedPoints.length < 3) {
+                alert('Select at least 3 active points to form a closed region.');
+                return;
+            }
+            closedRegions.push([...selectedPoints]);
+            recalculateRegions();
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            closedRegions = [];
+            recalculateRegions();
+        });
+
+        function recalculateRegions() {
+            while (regionsGroup.children.length > 0) regionsGroup.remove(regionsGroup.children[0]);
+
+            closedRegions.forEach(pointList => {
+                const vertices = pointList.map(name => {
+                    const d = pointsData[name];
+                    return d && d.active ? new THREE.Vector3(d.x, d.y, d.z) : null;
+                }).filter(v => v !== null);
+
+                if (vertices.length < 3) return;
+
+                const center = new THREE.Vector3();
+                vertices.forEach(v => center.add(v));
+                center.divideScalar(vertices.length);
+
+                const geomVertices = [];
+                for (let i = 0; i < vertices.length; i++) {
+                    const nextIdx = (i + 1) % vertices.length;
+                    geomVertices.push(center.x, center.y, center.z);
+                    geomVertices.push(vertices[i].x, vertices[i].y, vertices[i].z);
+                    geomVertices.push(vertices[nextIdx].x, vertices[nextIdx].y, vertices[nextIdx].z);
+                }
+
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(geomVertices, 3));
+                geometry.computeVertexNormals();
+
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0xffe600,
+                    transparent: true,
+                    opacity: 0.35,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+
+                regionsGroup.add(new THREE.Mesh(geometry, material));
+            });
+        }
+
+        // Initial setup update
+        updateAllVectorGraphics();
+        updateAllLineVisualizations();
+        updateAllPlaneVisualizations();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
