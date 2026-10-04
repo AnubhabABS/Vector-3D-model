@@ -346,9 +346,9 @@
         <!-- Points Configuration Tab -->
         <div class="toggle-header" id="points-toggle-hdr">
             <span>Points Configuration</span>
-            <span class="arrow-icon" id="arrow-icon-points">▲</span>
+            <span class="arrow-icon collapsed" id="arrow-icon-points">▲</span>
         </div>
-        <div class="tab-container" id="points-list">
+        <div class="tab-container collapsed" id="points-list">
             <div id="points-list-rows"></div>
             <div class="btn-row">
                 <button id="action-btn" class="btn">Fill Region</button>
@@ -646,7 +646,7 @@
             });
         });
 
-        // Vectors Management
+        // Vectors Management (Defaults set to inactive to start with empty space)
         const vectorsData = {};
         const vectorNames = ['V1', 'V2', 'V3'];
         const vectorColors = ['#00ff66', '#ffe600', '#00f3ff'];
@@ -657,7 +657,7 @@
 
         vectorNames.forEach((vName, index) => {
             vectorsData[vName] = {
-                name: vName, active: index < 2, shiftToOrigin: false,
+                name: vName, active: false, shiftToOrigin: false,
                 initial: { ...defaultInitials[index] },
                 terminal: { ...defaultTerminals[index] },
                 color: vectorColors[index],
@@ -670,7 +670,7 @@
             row.style.borderLeftColor = vectorColors[index];
             row.innerHTML = `
                 <div class="vector-row-header">
-                    <input type="checkbox" class="point-toggle" id="toggle-${vName}" ${index < 2 ? 'checked' : ''}>
+                    <input type="checkbox" class="point-toggle" id="toggle-${vName}">
                     <span class="vector-label" style="color: ${vectorColors[index]}">${vName}</span>
                 </div>
                 <div class="point-sublabel">Initial Point</div>
@@ -774,7 +774,7 @@
             });
         });
 
-        // Plane Configuration (P1, P2, P3)
+        // Plane Configuration (P1, P2, P3) (Defaults set to inactive to start with empty space)
         const planesData = {};
         const planeNames = ['P1', 'P2', 'P3'];
         const customPlaneColors = ['#b000ff', '#00f3ff', '#ff5500'];
@@ -788,7 +788,7 @@
 
         planeNames.forEach((pName, index) => {
             planesData[pName] = {
-                name: pName, active: index < 2,
+                name: pName, active: false,
                 a: { ...defaultPlaneA[index] },
                 b: { ...defaultPlaneB[index] },
                 color: customPlaneColors[index],
@@ -801,7 +801,7 @@
             row.style.borderLeftColor = customPlaneColors[index];
             row.innerHTML = `
                 <div class="vector-row-header">
-                    <input type="checkbox" class="point-toggle" id="toggle-${pName}" ${index < 2 ? 'checked' : ''}>
+                    <input type="checkbox" class="point-toggle" id="toggle-${pName}">
                     <span class="plane-label" style="color: ${customPlaneColors[index]}">${pName}</span>
                     <span style="font-size: 9px; color: #7a9bb8;">(r - a) · b = 0</span>
                 </div>
